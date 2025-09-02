@@ -1,9 +1,13 @@
 mod config;
 mod init;
-use std::{error::Error, sync::Arc};
+mod trans;
+
+use std::{collections::HashMap, error::Error, sync::Arc};
 
 use derive_more::Display;
-use megacommerce_proto::{common_service_client::CommonServiceClient, Config as SharedConfig};
+use megacommerce_proto::{
+  common_service_client::CommonServiceClient, Config as SharedConfig, TranslationElements,
+};
 use tokio::sync::Mutex;
 use tonic::transport::Channel;
 
@@ -14,20 +18,22 @@ pub struct CommonArgs {
   pub service_config: ServiceConfig,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Common {
-  pub(crate) client: Option<CommonServiceClient<Channel>>,
-  pub(crate) service_config: ServiceConfig,
-  pub(crate) shared_config: Arc<Mutex<SharedConfig>>,
+  pub(super) client: Option<CommonServiceClient<Channel>>,
+  pub(super) service_config: ServiceConfig,
+  pub(super) shared_config: Arc<Mutex<SharedConfig>>,
+  pub(super) translations: Arc<Mutex<HashMap<String, TranslationElements>>>,
 }
 
 impl Common {
   /// New initialize connection to the common service, initialize configurations
   pub async fn new(ca: CommonArgs) -> Result<Common, Box<dyn Error>> {
     let mut com = Common {
+      client: None,
       service_config: ca.service_config,
       shared_config: Arc::new(Mutex::new(SharedConfig::default())),
-      client: None,
+      translations: Arc::new(Mutex::new(HashMap::new())),
     };
 
     match com.init_client().await {
@@ -41,6 +47,12 @@ impl Common {
         *config = res;
       }
       Err(err) => return Err(err),
+    }
+
+    {
+      let res = com.translations_get().await?;
+      let mut tr = com.translations.lock().await;
+      *tr = res;
     }
 
     Ok(com)
@@ -72,5 +84,14 @@ impl Common {
   {
     let config = self.shared_config.lock().await;
     f(&config)
+  }
+
+  /// Translations returns a read only access to translations
+  pub async fn translations<T, F>(&self, f: F) -> T
+  where
+    F: FnOnce(&HashMap<String, TranslationElements>) -> T,
+  {
+    let trans = self.translations.lock().await;
+    f(&trans)
   }
 }
