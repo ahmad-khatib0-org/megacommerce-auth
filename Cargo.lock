@@ -521,6 +521,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "derive_more",
+ "http",
  "megacommerce-proto",
  "scopeguard",
  "serde",
@@ -537,9 +538,9 @@ dependencies = [
 
 [[package]]
 name = "megacommerce-proto"
-version = "0.1.60"
+version = "0.1.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef7d32a8f88dfbfd569225b3a196248cb39fa805a59b1b6f8a8038516d42437f"
+checksum = "279f8c7d54cc1cb7bb0eef39534d4bfac2218b71c6b0c04497c733ce7c3951c1"
 dependencies = [
  "prost 0.13.5",
  "prost-types",
