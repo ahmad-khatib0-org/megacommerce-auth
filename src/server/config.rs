@@ -1,4 +1,4 @@
-use std::{env, error::Error, fs};
+use std::{env, fs};
 
 use megacommerce_shared::models::errors::{BoxedErr, ErrorType, InternalError};
 
@@ -7,7 +7,7 @@ use crate::models::config::Config;
 use super::Server;
 
 impl Server {
-  pub async fn init_servie_config(&self) -> Result<(), Box<dyn Error>> {
+  pub async fn init_servie_config(&self) -> Result<(), BoxedErr> {
     let env = env::var("ENV").unwrap_or_else(|_| "dev".into());
     let return_err = |msg: &str, err: BoxedErr| InternalError {
       err_type: ErrorType::ConfigError,

@@ -1,7 +1,7 @@
-use std::{error::Error, time::Duration};
+use std::time::Duration;
 
 use megacommerce_proto::{common_service_client::CommonServiceClient, PingRequest};
-use megacommerce_shared::models::errors::{ErrorType, InternalError};
+use megacommerce_shared::models::errors::{BoxedErr, ErrorType, InternalError};
 use tokio::time::timeout;
 use tonic::{transport::Channel, Request};
 use tower::BoxError;
@@ -11,7 +11,7 @@ use crate::utils::net::validate_url_target;
 use super::Common;
 
 impl Common {
-  pub async fn init_client(&mut self) -> Result<CommonServiceClient<Channel>, Box<dyn Error>> {
+  pub async fn init_client(&mut self) -> Result<CommonServiceClient<Channel>, BoxedErr> {
     let return_err = |msg: &str, err: BoxError| {
       Box::new(InternalError {
         err,
@@ -19,7 +19,7 @@ impl Common {
         temp: false,
         msg: msg.into(),
         path: "auth.common.init_client".into(),
-      }) as Box<dyn Error>
+      }) as BoxedErr
     };
 
     let url = self.service_config.service.common_service_grpc_url.clone();

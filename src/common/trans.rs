@@ -3,7 +3,7 @@ use std::{collections::HashMap, error::Error, sync::Arc, time::Duration};
 use megacommerce_proto::{TranslationElements, TranslationsGetRequest};
 use megacommerce_shared::models::{
   context::Context,
-  errors::{app_error_from_proto_app_error, ErrorType, InternalError},
+  errors::{app_error_from_proto_app_error, BoxedErr, ErrorType, InternalError},
 };
 use tokio::time::timeout;
 use tonic::Request;
@@ -13,7 +13,7 @@ use super::Common;
 impl Common {
   pub(super) async fn translations_get(
     &mut self,
-  ) -> Result<HashMap<String, TranslationElements>, Box<dyn Error>> {
+  ) -> Result<HashMap<String, TranslationElements>, BoxedErr> {
     let err_msg = "failed to get configurations from common service";
     let ie = |msg: &str, err: Box<dyn Error + Send + Sync>| {
       Box::new(InternalError {

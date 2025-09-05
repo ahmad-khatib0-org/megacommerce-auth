@@ -3,7 +3,7 @@ use std::{error::Error, sync::Arc, time::Duration};
 use megacommerce_proto::{config_get_response::Response, Config as SharedConfig, ConfigGetRequest};
 use megacommerce_shared::models::{
   context::Context,
-  errors::{app_error_from_proto_app_error, ErrorType, InternalError},
+  errors::{app_error_from_proto_app_error, BoxedErr, ErrorType, InternalError},
 };
 use tokio::time::timeout;
 use tonic::Request;
@@ -11,7 +11,7 @@ use tonic::Request;
 use super::Common;
 
 impl Common {
-  pub(super) async fn config_get(&mut self) -> Result<SharedConfig, Box<dyn Error>> {
+  pub(super) async fn config_get(&mut self) -> Result<SharedConfig, BoxedErr> {
     let err_msg = "failed to get configurations from common service";
     let mk_err = |msg: &str, err: Box<dyn Error + Send + Sync>| {
       Box::new(InternalError {

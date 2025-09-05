@@ -8,6 +8,7 @@ use derive_more::Display;
 use megacommerce_proto::{
   common_service_client::CommonServiceClient, Config as SharedConfig, TranslationElements,
 };
+use megacommerce_shared::models::errors::BoxedErr;
 use tokio::sync::Mutex;
 use tonic::transport::Channel;
 
@@ -28,7 +29,7 @@ pub struct Common {
 
 impl Common {
   /// New initialize connection to the common service, initialize configurations
-  pub async fn new(ca: CommonArgs) -> Result<Common, Box<dyn Error>> {
+  pub async fn new(ca: CommonArgs) -> Result<Common, BoxedErr> {
     let mut com = Common {
       client: None,
       service_config: ca.service_config,
@@ -36,10 +37,7 @@ impl Common {
       translations: Arc::new(Mutex::new(HashMap::new())),
     };
 
-    match com.init_client().await {
-      Ok(cli) => com.client = Some(cli),
-      Err(e) => return Err(e),
-    }
+    com.client = Some(com.init_client().await?);
 
     match com.config_get().await {
       Ok(res) => {
@@ -65,7 +63,7 @@ impl Common {
   }
 
   /// Reconnect: close old client if any, then create new one
-  pub async fn reconnect(&mut self) -> Result<(), Box<dyn Error>> {
+  pub async fn reconnect(&mut self) -> Result<(), BoxedErr> {
     self.close(); // drop old client if present
     let client = self.init_client().await?;
     self.client = Some(client);
