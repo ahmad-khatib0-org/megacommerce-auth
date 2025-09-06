@@ -17,7 +17,7 @@ pub trait HydraClient: Send + Sync {
 /// Concrete Hydra client
 #[derive(Debug)]
 pub struct DefaultHydraClient {
-  pub base_url: String,
+  pub hydra_url: String,
 }
 
 #[async_trait]

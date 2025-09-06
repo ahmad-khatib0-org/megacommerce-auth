@@ -4,7 +4,7 @@ use std::{
 };
 
 use http::Uri;
-use megacommerce_proto::service::auth::v3::CheckRequest;
+use megacommerce_proto::{service::auth::v3::CheckRequest, JwtClaims, Timestamp};
 use megacommerce_shared::models::{
   context::Context,
   errors::{AppError, AppErrorErrors, OptionalErr},
@@ -36,10 +36,38 @@ pub fn extract_jwt_from_request(req: &CheckRequest) -> Option<String> {
     })
 }
 
-// pub fn extract_jwt_claims_from_request(req: any) -> RetType {
-//   todo!();
-// }
+pub fn extract_jwt_claims_from_request<T>(req: &Request<T>) -> JwtClaims {
+  let meta = req.metadata();
 
+  let get_header = |key: &str| -> String {
+    meta.get(key).and_then(|v| v.to_str().ok()).unwrap_or_default().to_string()
+  };
+
+  // Helper to extract numeric timestamp (exp, nbf, iat)
+  let get_timestamp = |key: &str| -> Option<Timestamp> {
+    meta
+      .get(key)
+      .and_then(|v| v.to_str().ok())
+      .and_then(|s| s.parse::<i64>().ok().map(|secs| Timestamp { seconds: secs, nanos: 0 }))
+  };
+
+  JwtClaims {
+    iss: get_header("x-jwt-iss"),
+    sub: get_header("x-jwt-sub"),
+    aud: meta
+      .get("x-jwt-aud")
+      .and_then(|v| v.to_str().ok())
+      .map(|s| vec![s.to_string()])
+      .unwrap_or_default(),
+    exp: get_timestamp("x-jwt-exp"),
+    nbf: get_timestamp("x-jwt-nbf"),
+    iat: get_timestamp("x-jwt-iat"),
+    jti: get_header("x-jwt-jti"),
+    custom: Default::default(),
+  }
+}
+
+/// TODO: not used
 pub fn extract_jti_from_request<T>(
   ctx: Arc<Context>,
   path: &str,

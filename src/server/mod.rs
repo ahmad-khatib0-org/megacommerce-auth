@@ -30,7 +30,7 @@ pub struct Server {
   pub(crate) errors_send: Sender<InternalError>,
   pub(crate) service_config: Arc<Mutex<Config>>,
   pub(crate) shared_config: Arc<RwLock<SharedConfig>>,
-  pub(crate) redis: Option<Arc<Pool>>,
+  pub(crate) redis: Option<Arc<RwLock<Pool>>>,
 }
 
 impl Server {
@@ -75,12 +75,13 @@ impl Server {
       path: "auth.server.run".into(),
     };
 
-    self.redis = Some(Arc::new(self.init_redis().await?));
+    self.redis = Some(Arc::new(RwLock::new(self.init_redis().await?)));
 
     let translations = self.common.translations(|trans| trans.clone()).await;
     translations_init(translations, 5).map_err(|err| ie("error init trans", Box::new(err)))?;
 
-    let controller_args = { ControllerArgs { config: self.config() } };
+    let controller_args = { ControllerArgs { config: self.config(), redis_con: self.redis() } };
+
     let controller = Controller::new(controller_args).await;
     controller.run().await?;
 
@@ -96,5 +97,10 @@ impl Server {
   /// Return a read-only config to pass downstream
   pub fn config(&self) -> RLock<SharedConfig> {
     RLock::<SharedConfig>(self.shared_config.clone())
+  }
+
+  /// Return a read-only redis to pass downstream
+  pub fn redis(&self) -> RLock<Pool> {
+    RLock::<Pool>(self.redis.as_ref().unwrap().clone())
   }
 }

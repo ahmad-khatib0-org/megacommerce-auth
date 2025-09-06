@@ -1,10 +1,12 @@
 mod extension;
 mod hydra;
+mod middleware_response;
 mod redis;
 mod router;
 
 use std::net::SocketAddr;
 
+use deadpool_redis::Pool;
 use hydra::DefaultHydraClient;
 use megacommerce_proto::service::auth::v3::authorization_server::AuthorizationServer;
 use megacommerce_proto::Config;
@@ -17,6 +19,7 @@ use crate::utils::net::validate_url_target;
 
 pub struct ControllerArgs {
   pub config: RLock<Config>,
+  pub redis_con: RLock<Pool>,
 }
 
 #[derive(Debug)]
@@ -28,15 +31,13 @@ pub struct Controller {
 
 impl Controller {
   pub async fn new(ca: ControllerArgs) -> Self {
-    let urls = {
+    let hydra_url = {
       let config = ca.config.get().await;
-      let hydra = config.services.as_ref().unwrap().oauth_provider_url();
-      let redis = config.cache.as_ref().unwrap().redis_address();
-      (hydra.to_string(), redis.to_string())
+      config.services.as_ref().unwrap().oauth_provider_url().to_owned()
     };
 
-    let hydra = DefaultHydraClient { base_url: urls.0 };
-    let redis = DefaultRedisClient { connection_url: urls.1 };
+    let hydra = DefaultHydraClient { hydra_url };
+    let redis = DefaultRedisClient { redis: ca.redis_con };
     Self { config: ca.config, hydra, redis }
   }
 
