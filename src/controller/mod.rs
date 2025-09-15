@@ -3,6 +3,7 @@ mod extension;
 mod hydra;
 mod redis;
 mod router;
+mod routes;
 
 use std::net::SocketAddr;
 

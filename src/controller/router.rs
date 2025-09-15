@@ -4,7 +4,6 @@ use megacommerce_proto::service::auth::v3::{
   authorization_server::Authorization, CheckRequest, CheckResponse,
 };
 use megacommerce_shared::{models::context::Context, utils::time::time_get_seconds};
-use phf::{phf_map, Map};
 use tonic::{Code, Request, Response, Status};
 
 use crate::utils::net::extract_jwt_claims_from_request;
@@ -13,11 +12,8 @@ use super::{
   extension::CheckResponseExt,
   hydra::{HydraClient, HydraValidation},
   redis::{RedisCheck, RedisClient},
+  routes::ROUTES,
   Controller,
-};
-
-static ROUTES: Map<&'static str, bool> = phf_map! {
-  "/user.v1.UsersService/CreateSupplier" =>  false,
 };
 
 #[tonic::async_trait]
