@@ -1,15 +1,17 @@
 mod config;
+mod database;
 mod init;
 
 use std::sync::Arc;
 
-use deadpool_redis::Pool;
+use deadpool_redis::Pool as RedisPool;
 use megacommerce_proto::Config as SharedConfig;
 use megacommerce_shared::models::{
   errors::{BoxedErr, ErrorType, InternalError},
   r_lock::RLock,
   translate::translations_init,
 };
+use sqlx::{Pool, Postgres};
 use tokio::{
   spawn,
   sync::{
@@ -30,7 +32,8 @@ pub struct Server {
   pub(crate) errors_send: Sender<InternalError>,
   pub(crate) service_config: Arc<Mutex<Config>>,
   pub(crate) shared_config: Arc<RwLock<SharedConfig>>,
-  pub(crate) redis: Option<Arc<RwLock<Pool>>>,
+  pub(crate) redis: Option<Arc<RwLock<RedisPool>>>,
+  pub(crate) db: Option<Arc<RwLock<Pool<Postgres>>>>,
 }
 
 impl Server {
@@ -43,6 +46,7 @@ impl Server {
       service_config: Arc::new(Mutex::new(Config::default())),
       shared_config: Arc::new(RwLock::new(SharedConfig::default())),
       redis: None,
+      db: None,
     };
 
     srv.init_servie_config().await?;
@@ -76,11 +80,13 @@ impl Server {
     };
 
     self.redis = Some(Arc::new(RwLock::new(self.init_redis().await?)));
+    self.db = Some(Arc::new(RwLock::new(self.init_database().await?)));
 
     let translations = self.common.translations(|trans| trans.clone()).await;
     translations_init(translations, 5).map_err(|err| ie("error init trans", Box::new(err)))?;
 
-    let controller_args = { ControllerArgs { config: self.config(), redis_con: self.redis() } };
+    let controller_args =
+      { ControllerArgs { config: self.config(), redis_con: self.redis(), db: self.db() } };
 
     let controller = Controller::new(controller_args).await;
     controller.run().await?;
@@ -100,7 +106,12 @@ impl Server {
   }
 
   /// Return a read-only redis to pass downstream
-  pub fn redis(&self) -> RLock<Pool> {
-    RLock::<Pool>(self.redis.as_ref().unwrap().clone())
+  pub fn redis(&self) -> RLock<RedisPool> {
+    RLock::<RedisPool>(self.redis.as_ref().unwrap().clone())
+  }
+
+  /// Return a read-only postgres database instance to pass downstream
+  pub fn db(&self) -> RLock<Pool<Postgres>> {
+    RLock::<Pool<Postgres>>(self.db.as_ref().unwrap().clone())
   }
 }

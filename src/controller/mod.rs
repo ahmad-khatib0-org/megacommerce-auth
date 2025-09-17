@@ -4,10 +4,11 @@ mod hydra;
 mod redis;
 mod router;
 mod routes;
+mod user_cache;
 
 use std::net::SocketAddr;
 
-use deadpool_redis::Pool;
+use deadpool_redis::Pool as RedisPool;
 use hydra::DefaultHydraClient;
 use megacommerce_proto::service::auth::v3::authorization_server::AuthorizationServer;
 use megacommerce_proto::Config;
@@ -16,6 +17,7 @@ use megacommerce_shared::models::r_lock::RLock;
 use megacommerce_shared::utils::middleware::middleware_context;
 use redis::DefaultRedisClient;
 use reqwest::Client;
+use sqlx::{Pool, Postgres};
 use tonic::service::InterceptorLayer;
 use tonic::transport::Server as TonicServer;
 use tower::ServiceBuilder;
@@ -24,7 +26,8 @@ use crate::utils::net::validate_url_target;
 
 pub struct ControllerArgs {
   pub config: RLock<Config>,
-  pub redis_con: RLock<Pool>,
+  pub redis_con: RLock<RedisPool>,
+  pub db: RLock<Pool<Postgres>>,
 }
 
 #[derive(Debug)]
@@ -32,7 +35,8 @@ pub struct Controller {
   pub config: RLock<Config>,
   pub hydra: DefaultHydraClient,
   pub redis: DefaultRedisClient,
-  pub redis_con: RLock<Pool>,
+  pub redis_con: RLock<RedisPool>,
+  pub db: RLock<Pool<Postgres>>,
 }
 
 impl Controller {
@@ -54,7 +58,7 @@ impl Controller {
     };
 
     let redis = DefaultRedisClient { redis: ca.redis_con.clone() };
-    Self { config: ca.config, hydra, redis, redis_con: ca.redis_con }
+    Self { config: ca.config, hydra, redis, redis_con: ca.redis_con, db: ca.db }
   }
 
   pub async fn run(self) -> Result<(), BoxedErr> {

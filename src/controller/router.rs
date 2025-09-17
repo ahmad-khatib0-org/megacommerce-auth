@@ -42,7 +42,9 @@ impl Authorization for Controller {
       return Ok(Response::new(CheckResponse::ok()));
     }
 
-    let token = extract_jwt_claims_from_request(&request).jti;
+    let claims = extract_jwt_claims_from_request(&request);
+    println!("{}", claims.sub);
+    let token = claims.jti;
 
     match self.redis.check_token(&token).await {
       Ok(RedisCheck::Revoked(_)) => {
@@ -56,7 +58,7 @@ impl Authorization for Controller {
         };
 
         if needs_hydra {
-          // TODO: handle mark_checked_ok, revoke_token
+          // TODO: handle mark_checked_ok, revoke_token errors
           match self.hydra.validate_token(&token).await {
             Ok(HydraValidation::Valid { sub: _, exp: _ }) => {
               self.redis.mark_checked_ok(&token).await.ok();
