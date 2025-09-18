@@ -17,17 +17,17 @@ use megacommerce_shared::models::r_lock::RLock;
 use megacommerce_shared::utils::middleware::middleware_context;
 use redis::DefaultRedisClient;
 use reqwest::Client;
-use sqlx::{Pool, Postgres};
 use tonic::service::InterceptorLayer;
 use tonic::transport::Server as TonicServer;
 use tower::ServiceBuilder;
 
+use crate::store::database::AuthStore;
 use crate::utils::net::validate_url_target;
 
 pub struct ControllerArgs {
   pub config: RLock<Config>,
   pub redis_con: RLock<RedisPool>,
-  pub db: RLock<Pool<Postgres>>,
+  pub store: RLock<dyn AuthStore + Send + Sync>,
 }
 
 #[derive(Debug)]
@@ -36,7 +36,7 @@ pub struct Controller {
   pub hydra: DefaultHydraClient,
   pub redis: DefaultRedisClient,
   pub redis_con: RLock<RedisPool>,
-  pub db: RLock<Pool<Postgres>>,
+  pub(super) store: RLock<dyn AuthStore + Send + Sync>,
 }
 
 impl Controller {
@@ -58,7 +58,7 @@ impl Controller {
     };
 
     let redis = DefaultRedisClient { redis: ca.redis_con.clone() };
-    Self { config: ca.config, hydra, redis, redis_con: ca.redis_con, db: ca.db }
+    Self { config: ca.config, hydra, redis, redis_con: ca.redis_con, store: ca.store }
   }
 
   pub async fn run(self) -> Result<(), BoxedErr> {

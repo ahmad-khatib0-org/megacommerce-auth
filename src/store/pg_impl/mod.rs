@@ -1,4 +1,5 @@
 mod router;
+mod user;
 
 use megacommerce_shared::models::r_lock::RLock;
 use sqlx::{Pool, Postgres};

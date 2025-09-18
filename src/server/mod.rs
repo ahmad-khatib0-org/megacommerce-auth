@@ -1,5 +1,6 @@
 mod config;
 mod database;
+mod getters;
 mod init;
 
 use std::sync::Arc;
@@ -8,7 +9,6 @@ use deadpool_redis::Pool as RedisPool;
 use megacommerce_proto::Config as SharedConfig;
 use megacommerce_shared::models::{
   errors::{BoxedErr, ErrorType, InternalError},
-  r_lock::RLock,
   translate::translations_init,
 };
 use sqlx::{Pool, Postgres};
@@ -24,6 +24,10 @@ use crate::{
   common::{Common, CommonArgs},
   controller::{Controller, ControllerArgs},
   models::config::Config,
+  store::{
+    database::AuthStore,
+    pg_impl::{AuthStoreImpl, AuthStoreImplArgs},
+  },
 };
 
 #[derive(Debug, Clone)]
@@ -34,6 +38,7 @@ pub struct Server {
   pub(crate) shared_config: Arc<RwLock<SharedConfig>>,
   pub(crate) redis: Option<Arc<RwLock<RedisPool>>>,
   pub(crate) db: Option<Arc<RwLock<Pool<Postgres>>>>,
+  pub(crate) store: Option<Arc<RwLock<dyn AuthStore + Send + Sync>>>,
 }
 
 impl Server {
@@ -47,6 +52,7 @@ impl Server {
       shared_config: Arc::new(RwLock::new(SharedConfig::default())),
       redis: None,
       db: None,
+      store: None,
     };
 
     srv.init_servie_config().await?;
@@ -85,8 +91,11 @@ impl Server {
     let translations = self.common.translations(|trans| trans.clone()).await;
     translations_init(translations, 5).map_err(|err| ie("error init trans", Box::new(err)))?;
 
+    self.store =
+      Some(Arc::new(RwLock::new(AuthStoreImpl::new(AuthStoreImplArgs { db: self.db() }))));
+
     let controller_args =
-      { ControllerArgs { config: self.config(), redis_con: self.redis(), db: self.db() } };
+      { ControllerArgs { config: self.config(), redis_con: self.redis(), store: self.store() } };
 
     let controller = Controller::new(controller_args).await;
     controller.run().await?;
@@ -98,20 +107,5 @@ impl Server {
     while let Some(msg) = receiver.recv().await {
       println!("received an internal error: {}", msg)
     }
-  }
-
-  /// Return a read-only config to pass downstream
-  pub fn config(&self) -> RLock<SharedConfig> {
-    RLock::<SharedConfig>(self.shared_config.clone())
-  }
-
-  /// Return a read-only redis to pass downstream
-  pub fn redis(&self) -> RLock<RedisPool> {
-    RLock::<RedisPool>(self.redis.as_ref().unwrap().clone())
-  }
-
-  /// Return a read-only postgres database instance to pass downstream
-  pub fn db(&self) -> RLock<Pool<Postgres>> {
-    RLock::<Pool<Postgres>>(self.db.as_ref().unwrap().clone())
   }
 }
