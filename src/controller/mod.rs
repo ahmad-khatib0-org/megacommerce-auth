@@ -4,6 +4,7 @@ mod hydra;
 mod redis;
 mod router;
 mod routes;
+mod token;
 mod user_cache;
 
 use std::net::SocketAddr;
