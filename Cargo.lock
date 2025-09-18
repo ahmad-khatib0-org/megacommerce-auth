@@ -1299,19 +1299,21 @@ dependencies = [
 
 [[package]]
 name = "megacommerce-shared"
-version = "0.3.3"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efe352be511d8aa1d0ec1d8b441ea4468ed47edf92243b156ba63b998bfdb9ed"
+checksum = "fa52c0238bd1620a21a59faa7822901d19025929d3ea77cb3784f9c54952a0d1"
 dependencies = [
  "chrono",
  "derive_more",
  "http",
  "megacommerce-proto",
  "megacommerce-shared-sanitize-derive",
+ "regex",
  "scopeguard",
  "serde",
  "serde_json",
  "serde_yaml",
+ "sqlx",
  "tera",
  "thiserror",
  "tokio",
@@ -3218,7 +3220,7 @@ version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0978bf7171b3d90bac376700cb56d606feb40f251a475a5d6634613564460b22"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
