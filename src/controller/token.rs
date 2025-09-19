@@ -25,12 +25,19 @@ pub(super) async fn check_token(r: &DefaultRedisClient, jti: &str) -> Result<Red
   }
 }
 
+// TODO: GET THE user device id
 pub(super) async fn revoke_token(r: &DefaultRedisClient, jti: &str) -> Result<(), BoxedErr> {
   let path = "auth.controller.check_token";
   let res = r.get_token(&jti, path).await?;
 
+  // This won't happen at all, unless the authn filter on envoy got removed
+  // So this can happen in this case: only if the user didn't use the token
+  // at all, so E,g the user logged in, and immediately closed the website
+  // and didn't hit envoy once again, this extreme case, and mostly won't happen
   if res.is_none() {
-    return Err(DefaultRedisClient::not_found_err(path, jti));
+    let last_checked = time_get_seconds() as i64;
+    let payload = CachedTokenStatus { revoked: true, last_checked, dev_id: "".into() };
+    return Ok(r.set_token(jti, &payload, &path).await?);
   }
 
   let mut payload = res.unwrap();
@@ -72,11 +79,11 @@ pub async fn get_token(
     InternalError::new(path.into(), err, ErrorType::Internal, false, msg.into())
   };
 
-  let key = auth_token_status_key(token);
   let mut con = r.get_conn(path).await?;
-
-  let res: Option<String> =
-    con.get(key).await.map_err(|err| ie(Box::new(err), "failed to get user data from redis"))?;
+  let res: Option<String> = con
+    .get(auth_token_status_key(token))
+    .await
+    .map_err(|err| ie(Box::new(err), "failed to get token data from redis"))?;
 
   match res {
     Some(json_str) => {
@@ -98,14 +105,12 @@ pub async fn set_token(
     InternalError::new(path.into(), err, ErrorType::Internal, false, msg.into())
   };
 
-  let key = auth_token_status_key(jti);
   let mut con = r.get_conn(path).await?;
-
   let value = serde_json::to_string(data)
     .map_err(|err| ie(Box::new(err), "failed to serialize CachedTokenStatus"))?;
 
   let _: () = con
-    .set(key, value)
+    .set(auth_token_status_key(jti), value)
     .await
     .map_err(|err| ie(Box::new(err), "failed to set CachedTokenStatus in redis"))?;
 

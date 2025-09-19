@@ -1,7 +1,7 @@
 mod audit;
-mod extension;
 mod hydra;
 mod redis;
+mod response;
 mod router;
 mod routes;
 mod token;
@@ -79,7 +79,6 @@ impl Controller {
     })?;
 
     let layer = ServiceBuilder::new().layer(InterceptorLayer::new(middleware_context)).into_inner();
-
     TonicServer::builder()
       .layer(layer)
       .add_service(AuthorizationServer::new(self))

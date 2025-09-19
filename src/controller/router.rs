@@ -1,17 +1,15 @@
-use std::sync::Arc;
-
 use megacommerce_proto::service::auth::v3::{
   authorization_server::Authorization, CheckRequest, CheckResponse,
 };
-use megacommerce_shared::{models::context::Context, utils::time::time_get_seconds};
+use megacommerce_shared::utils::time::time_get_seconds;
 use tonic::{Code, Request, Response, Status};
 
 use crate::utils::net::extract_jwt_claims_from_request;
 
 use super::{
-  extension::CheckResponseExt,
   hydra::{HydraClient, HydraValidation},
   redis::{RedisCheck, RedisClient},
+  response::CheckResponseExt,
   routes::ROUTES,
   Controller,
 };
@@ -21,7 +19,7 @@ impl Authorization for Controller {
   #[doc = " Performs authorization check based on the attributes associated with the"]
   #[doc = " incoming request, and returns status `OK` or not `OK`."]
   async fn check(&self, request: Request<CheckRequest>) -> Result<Response<CheckResponse>, Status> {
-    let ctx = request.extensions().get::<Arc<Context>>().cloned().unwrap();
+    let ctx = self.get_context(request.get_ref());
     let req = request.get_ref();
     let lang = ctx.accept_language();
 
@@ -39,12 +37,16 @@ impl Authorization for Controller {
     };
 
     if !protected {
-      return Ok(Response::new(CheckResponse::ok()));
+      return Ok(self.response_ok(&ctx, &request, None).await);
     }
 
     let claims = extract_jwt_claims_from_request(&request);
-    println!("{}", claims.sub);
-    let token = claims.jti;
+    let token = claims.jti.clone();
+
+    // the token id must be present, for a protected route
+    if token.is_empty() {
+      return Ok(Response::new(CheckResponse::denied(&Self::invalid_token_msg(lang))));
+    }
 
     match self.redis.check_token(&token).await {
       Ok(RedisCheck::Revoked(_)) => {
@@ -62,7 +64,7 @@ impl Authorization for Controller {
           match self.hydra.validate_token(&token).await {
             Ok(HydraValidation::Valid { sub: _, exp: _ }) => {
               self.redis.mark_checked_ok(&token).await.ok();
-              return Ok(Response::new(CheckResponse::ok()));
+              return Ok(self.response_ok(&ctx, &request, Some(claims)).await);
             }
             Ok(HydraValidation::Invalid(_)) => {
               self.redis.revoke_token(&token).await.ok();
@@ -74,7 +76,7 @@ impl Authorization for Controller {
             }
           }
         } else {
-          return Ok(Response::new(CheckResponse::ok())); // Cached as valid
+          return Ok(self.response_ok(&ctx, &request, Some(claims)).await); // Cached as valid
         }
       }
       Err(err) => {

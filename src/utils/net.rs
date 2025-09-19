@@ -1,39 +1,17 @@
-use std::{
-  io::{Error, ErrorKind},
-  sync::Arc,
-};
+use std::io::{Error, ErrorKind};
 
 use http::Uri;
 use megacommerce_proto::{service::auth::v3::CheckRequest, JwtClaims, Timestamp};
-use megacommerce_shared::models::{
-  context::Context,
-  errors::{AppError, AppErrorErrors, OptionalErr},
-  network::Header,
-};
-use serde_json::{from_str, Value};
-use tonic::{Code, Request};
+use tonic::Request;
+
+use crate::models::network::EssentialHttpHeaders;
 
 pub fn validate_url_target(url: &str) -> Result<Uri, Error> {
   url.parse::<Uri>().map_err(|e| Error::new(ErrorKind::InvalidInput, format!("invalid URL: {}", e)))
 }
 
-pub fn extract_jwt_from_request(req: &CheckRequest) -> Option<String> {
-  req
-    .attributes
-    .as_ref()?
-    .request
-    .as_ref()?
-    .http
-    .as_ref()?
-    .headers
-    .get(Header::Authorization.as_str())
-    .and_then(|h| {
-      if h.to_lowercase().starts_with("bearer ") {
-        Some(h[7..].to_string()) // strip "Bearer "
-      } else {
-        None
-      }
-    })
+pub fn extract_jwt_token_from_request<T>(req: &Request<T>) -> Option<String> {
+  req.metadata().get("authorization")?.to_str().ok()?.strip_prefix("Bearer ")?.to_string().into()
 }
 
 pub fn extract_jwt_claims_from_request<T>(req: &Request<T>) -> JwtClaims {
@@ -67,31 +45,43 @@ pub fn extract_jwt_claims_from_request<T>(req: &Request<T>) -> JwtClaims {
   }
 }
 
-/// TODO: not used
-pub fn extract_jti_from_request<T>(
-  ctx: Arc<Context>,
-  path: &str,
-  req: &Request<T>,
-) -> Result<String, AppError> {
-  let id = "jwt.payload.invalid";
-  let ae = |msg: &str, err: OptionalErr| {
-    AppError::new(
-      ctx.clone(),
-      path,
-      msg,
-      None,
-      "",
-      Code::Unauthenticated as i32,
-      Some(AppErrorErrors { err, ..Default::default() }),
-    )
-  };
+pub fn get_essential_http_headers(req: &CheckRequest) -> EssentialHttpHeaders {
+  let headers = req
+    .attributes
+    .as_ref()
+    .and_then(|a| a.request.as_ref())
+    .and_then(|r| r.http.as_ref())
+    .map(|h| {
+      h.headers
+        .iter()
+        .map(|(k, v)| (k.to_lowercase(), v.clone()))
+        .collect::<std::collections::HashMap<_, _>>()
+    })
+    .unwrap_or_default();
 
-  let payload = req.metadata().get("jwt_payload").ok_or_else(|| ae("jwt.payload.missing", None))?;
+  let get = |key: &str| headers.get(key).cloned().unwrap_or_default();
 
-  // Metadata is bytes → turn into string
-  let payload_str = payload.to_str().map_err(|err| ae(id, Some(Box::new(err))))?;
-  let json: Value = from_str(payload_str).map_err(|err| ae(id, Some(Box::new(err))))?;
-  let jti = json.get("jti").and_then(|v| v.as_str()).ok_or_else(|| ae(id, None))?;
+  EssentialHttpHeaders {
+    path: req
+      .attributes
+      .as_ref()
+      .and_then(|a| a.request.as_ref())
+      .and_then(|r| r.http.as_ref())
+      .map(|h| h.path.clone())
+      .unwrap_or_default(),
 
-  Ok(jti.to_string())
+    method: req
+      .attributes
+      .as_ref()
+      .and_then(|a| a.request.as_ref())
+      .and_then(|r| r.http.as_ref())
+      .map(|h| h.method.clone())
+      .unwrap_or_default(),
+
+    user_agent: get("user-agent"),
+    x_forwarded_for: get("x-forwarded-for"),
+    x_request_id: get("x-request-id"),
+    accept_language: get("accept-language"),
+    headers,
+  }
 }
