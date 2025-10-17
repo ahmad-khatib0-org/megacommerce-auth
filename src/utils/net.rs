@@ -1,4 +1,7 @@
-use std::io::{Error, ErrorKind};
+use std::{
+  collections::HashMap,
+  io::{Error, ErrorKind},
+};
 
 use http::Uri;
 use megacommerce_proto::{service::auth::v3::CheckRequest, JwtClaims, Timestamp};
@@ -45,21 +48,29 @@ pub fn extract_jwt_claims_from_request<T>(req: &Request<T>) -> JwtClaims {
   }
 }
 
-pub fn get_essential_http_headers(req: &CheckRequest) -> EssentialHttpHeaders {
+pub fn get_essential_http_headers(
+  req: &CheckRequest,
+  languages: Vec<String>,
+  default_language: String,
+) -> EssentialHttpHeaders {
   let headers = req
     .attributes
     .as_ref()
     .and_then(|a| a.request.as_ref())
     .and_then(|r| r.http.as_ref())
     .map(|h| {
-      h.headers
-        .iter()
-        .map(|(k, v)| (k.to_lowercase(), v.clone()))
-        .collect::<std::collections::HashMap<_, _>>()
+      h.headers.iter().map(|(k, v)| (k.to_lowercase(), v.clone())).collect::<HashMap<_, _>>()
     })
     .unwrap_or_default();
 
   let get = |key: &str| headers.get(key).cloned().unwrap_or_default();
+
+  let existing_lang = get("accept-language");
+  let accept_language = if languages.iter().any(|lang| lang == &existing_lang) {
+    existing_lang
+  } else {
+    default_language
+  };
 
   EssentialHttpHeaders {
     path: req
@@ -81,7 +92,7 @@ pub fn get_essential_http_headers(req: &CheckRequest) -> EssentialHttpHeaders {
     user_agent: get("user-agent"),
     x_forwarded_for: get("x-forwarded-for"),
     x_request_id: get("x-request-id"),
-    accept_language: get("accept-language"),
+    accept_language,
     headers,
   }
 }

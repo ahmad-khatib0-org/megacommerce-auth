@@ -38,6 +38,14 @@ pub struct Controller {
   pub redis: DefaultRedisClient,
   pub redis_con: RLock<RedisPool>,
   pub(super) store: RLock<dyn AuthStore + Send + Sync>,
+
+  pub cached_config: CachedConfig,
+}
+
+#[derive(Debug, Default)]
+struct CachedConfig {
+  pub available_languages: Vec<String>,
+  pub default_language: String,
 }
 
 impl Controller {
@@ -59,7 +67,19 @@ impl Controller {
     };
 
     let redis = DefaultRedisClient { redis: ca.redis_con.clone() };
-    Self { config: ca.config, hydra, redis, redis_con: ca.redis_con, store: ca.store }
+    let cfg = ca.config.get().await.localization.clone().unwrap();
+    let cached_config = CachedConfig {
+      available_languages: cfg.available_locales.clone(),
+      default_language: cfg.default_client_locale.clone().unwrap_or("en".to_string()),
+    };
+    Self {
+      config: ca.config,
+      hydra,
+      redis,
+      redis_con: ca.redis_con,
+      store: ca.store,
+      cached_config,
+    }
   }
 
   pub async fn run(self) -> Result<(), BoxedErr> {

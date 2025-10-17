@@ -21,8 +21,12 @@ use super::Controller;
 
 impl Controller {
   // TODO: handle getting the real ip
-  pub fn get_context(&self, req: &CheckRequest) -> Arc<Context> {
-    let h = get_essential_http_headers(req);
+  pub async fn get_context(&self, req: &CheckRequest) -> Arc<Context> {
+    let h = get_essential_http_headers(
+      req,
+      self.cached_config.available_languages.clone(),
+      self.cached_config.default_language.clone(),
+    );
     let path = req
       .attributes
       .as_ref()

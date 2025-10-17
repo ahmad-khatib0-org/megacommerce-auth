@@ -19,7 +19,7 @@ impl Authorization for Controller {
   #[doc = " Performs authorization check based on the attributes associated with the"]
   #[doc = " incoming request, and returns status `OK` or not `OK`."]
   async fn check(&self, request: Request<CheckRequest>) -> Result<Response<CheckResponse>, Status> {
-    let ctx = self.get_context(request.get_ref());
+    let ctx = self.get_context(request.get_ref()).await;
     let req = request.get_ref();
     let lang = ctx.accept_language();
 
