@@ -99,7 +99,7 @@ impl Controller {
 
     if claims.is_some() {
       let c = claims.unwrap().clone();
-      if c.jti.clone().is_empty() && c.sub.clone().is_empty() {
+      if !c.jti.is_empty() && !c.sub.is_empty() {
         let token = extract_jwt_token_from_request(req).unwrap_or_default();
         let user_id = c.sub.clone();
         let auth_data =
@@ -126,7 +126,7 @@ impl Controller {
           c.exp.and_then(|t| t.seconds.to_string().into()).unwrap_or_default(),
         ));
         headers.push(header(Header::LastActivityAt, Utc::now().timestamp().to_string()));
-        headers.push(header(Header::UserId, c.sub));
+        headers.push(header(Header::UserId, user_id));
         headers.push(header(Header::DeviceId, device_id.to_string()));
         headers.push(header(Header::Roles, auth_data.roles));
         headers.push(header(Header::IsOauth, auth_data.is_oauth.to_string()));
@@ -149,8 +149,8 @@ impl Controller {
   }
 
   pub fn invalid_token_msg(lang: &str) -> String {
-    return tr::<String>(lang, "jwt.payload.invalid", None)
-      .unwrap_or("Sorry, the authentication payload is invalid, please login first".into());
+    tr::<String>(lang, "jwt.payload.invalid", None)
+      .unwrap_or("Sorry, the authentication payload is invalid, please login first".into())
   }
 
   pub fn int_err_msg(lang: &str) -> String {
@@ -167,12 +167,27 @@ pub trait CheckResponseExt {
 
 impl CheckResponseExt for CheckResponse {
   fn denied(msg: &str) -> Self {
+    let header = |key: &str, value: String| HeaderValueOption {
+      append: Some(BoolValue { value: false }),
+      append_action: HeaderAppendAction::OverwriteIfExistsOrAdd as i32,
+      keep_empty_value: false,
+      header: Some(HeaderValue { key: key.to_string(), value, raw_value: Vec::new() }),
+    };
+
     Self {
       status: Some(Status {
         code: Code::PermissionDenied as i32,
         message: msg.to_string(),
         details: vec![],
       }),
+      http_response: Some(HttpResponse::OkResponse(OkHttpResponse {
+        headers: vec![
+          header("x-grpc-message", msg.to_string()),
+          header("x-grpc-status", (Code::PermissionDenied as i32).to_string()),
+          header("x-error-message", msg.to_string()), // Additional header
+        ],
+        ..Default::default()
+      })),
       ..Default::default()
     }
   }

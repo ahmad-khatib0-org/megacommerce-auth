@@ -38,8 +38,7 @@ pub struct Controller {
   pub redis: DefaultRedisClient,
   pub redis_con: RLock<RedisPool>,
   pub(super) store: RLock<dyn AuthStore + Send + Sync>,
-
-  pub cached_config: CachedConfig,
+  cached_config: CachedConfig,
 }
 
 #[derive(Debug, Default)]
@@ -53,7 +52,7 @@ impl Controller {
     let urls = {
       let config = ca.config.get().await;
       let oauth = config.oauth.as_ref().unwrap();
-      let hydra = oauth.oauth_provider_url().to_owned();
+      let hydra = oauth.oauth_admin_url().to_owned();
       let id = oauth.oauth_client_id().to_owned();
       let secret = oauth.oauth_client_secret().to_owned();
       (hydra, id, secret)

@@ -17,35 +17,62 @@ pub fn extract_jwt_token_from_request<T>(req: &Request<T>) -> Option<String> {
   req.metadata().get("authorization")?.to_str().ok()?.strip_prefix("Bearer ")?.to_string().into()
 }
 
-pub fn extract_jwt_claims_from_request<T>(req: &Request<T>) -> JwtClaims {
+pub fn extract_jwt_claims_and_token(req: &Request<CheckRequest>) -> (JwtClaims, String) {
+  let parse_timestamp = |s: &str| -> Option<Timestamp> {
+    s.parse::<i64>().ok().map(|secs| Timestamp { seconds: secs, nanos: 0 })
+  };
+
+  // build headers map anyway for extraction
+  let mut headers_map: HashMap<String, String> = HashMap::new();
+  if let Some(attrs) = req.get_ref().attributes.as_ref() {
+    if let Some(r) = attrs.request.as_ref() {
+      if let Some(http_req) = r.http.as_ref() {
+        headers_map =
+          http_req.headers.clone().into_iter().map(|(k, v)| (k.to_ascii_lowercase(), v)).collect();
+      }
+    }
+  }
+
+  let get =
+    |k: &str| -> String { headers_map.get(&k.to_ascii_lowercase()).cloned().unwrap_or_default() };
+  let get_ts = |k: &str| -> Option<Timestamp> {
+    headers_map.get(&k.to_ascii_lowercase()).and_then(|s| parse_timestamp(s))
+  };
+
+  // Extract token from headers
+  let mut token = headers_map
+    .get("authorization")
+    .and_then(|auth| auth.strip_prefix("Bearer ").or_else(|| auth.strip_prefix("bearer ")))
+    .map(|s| s.to_string())
+    .unwrap_or_default();
+
+  // 4) Fallback: gRPC metadata
   let meta = req.metadata();
 
-  let get_header = |key: &str| -> String {
-    meta.get(key).and_then(|v| v.to_str().ok()).unwrap_or_default().to_string()
-  };
-
-  // Helper to extract numeric timestamp (exp, nbf, iat)
-  let get_timestamp = |key: &str| -> Option<Timestamp> {
-    meta
-      .get(key)
-      .and_then(|v| v.to_str().ok())
-      .and_then(|s| s.parse::<i64>().ok().map(|secs| Timestamp { seconds: secs, nanos: 0 }))
-  };
-
-  JwtClaims {
-    iss: get_header("x-jwt-iss"),
-    sub: get_header("x-jwt-sub"),
-    aud: meta
-      .get("x-jwt-aud")
-      .and_then(|v| v.to_str().ok())
-      .map(|s| vec![s.to_string()])
-      .unwrap_or_default(),
-    exp: get_timestamp("x-jwt-exp"),
-    nbf: get_timestamp("x-jwt-nbf"),
-    iat: get_timestamp("x-jwt-iat"),
-    jti: get_header("x-jwt-jti"),
-    custom: Default::default(),
+  if token.is_empty() {
+    if let Some(auth_val) = meta.get("authorization") {
+      if let Ok(auth_str) = auth_val.to_str() {
+        token = auth_str
+          .strip_prefix("Bearer ")
+          .or_else(|| auth_str.strip_prefix("bearer "))
+          .unwrap_or("")
+          .to_string();
+      }
+    }
   }
+
+  let claims = JwtClaims {
+    iss: get("x-jwt-iss"),
+    sub: get("x-jwt-sub"),
+    aud: headers_map.get("x-jwt-aud").map(|s| vec![s.clone()]).unwrap_or_default(),
+    exp: get_ts("x-jwt-exp"),
+    nbf: get_ts("x-jwt-nbf"),
+    iat: get_ts("x-jwt-iat"),
+    jti: get("x-jwt-jti"),
+    custom: Default::default(),
+  };
+
+  (claims, token)
 }
 
 pub fn get_essential_http_headers(

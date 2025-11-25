@@ -4,7 +4,7 @@ use megacommerce_proto::service::auth::v3::{
 use megacommerce_shared::utils::time::time_get_seconds;
 use tonic::{Code, Request, Response, Status};
 
-use crate::utils::net::extract_jwt_claims_from_request;
+use crate::utils::net::extract_jwt_claims_and_token;
 
 use super::{
   hydra::{HydraClient, HydraValidation},
@@ -40,16 +40,17 @@ impl Authorization for Controller {
       return Ok(self.response_ok(&ctx, &request, None).await);
     }
 
-    let claims = extract_jwt_claims_from_request(&request);
-    let token = claims.jti.clone();
+    let (claims, token) = extract_jwt_claims_and_token(&request);
 
     // the token id must be present, for a protected route
     if token.is_empty() {
+      println!("token is empty ");
       return Ok(Response::new(CheckResponse::denied(&Self::invalid_token_msg(lang))));
     }
 
     match self.redis.check_token(&token).await {
       Ok(RedisCheck::Revoked(_)) => {
+        println!("token is revoked ");
         return Ok(Response::new(CheckResponse::denied(&Self::invalid_token_msg(lang))));
       }
       Ok(RedisCheck::Allowed { status }) => {
@@ -68,6 +69,7 @@ impl Authorization for Controller {
             }
             Ok(HydraValidation::Invalid(_)) => {
               self.redis.revoke_token(&token).await.ok();
+              println!("token is Invalid ");
               return Ok(Response::new(CheckResponse::denied(&Self::invalid_token_msg(lang))));
             }
             Err(err) => {

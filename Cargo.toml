@@ -4,8 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-megacommerce-proto = "0.1.71"
-megacommerce-shared = "0.4.0"
+megacommerce-shared = "0.4.42"
 tokio = { version = "1.45.1", features = ["full"] }
 tonic = "0.13.1"
 tower = "0.5.2"
@@ -38,3 +37,4 @@ sqlx = { version = "0.8.6", features = [
   "json",
   "bigdecimal",
 ] }
+megacommerce-proto = "0.4.34"

@@ -10,6 +10,6 @@ pub trait AuthStore: fmt::Debug + Send + Sync {
   async fn user_get_auth_data(
     &self,
     ctx: Arc<Context>,
-    email: &str,
+    user_id: &str,
   ) -> Result<CachedUserData, DBError>;
 }

@@ -12,10 +12,10 @@ use super::AuthStoreImpl;
 pub async fn user_get_auth_data(
   s: &AuthStoreImpl,
   _ctx: Arc<Context>,
-  email: &str,
+  user_id: &str,
 ) -> Result<CachedUserData, DBError> {
   let row =
-    query!(r#"SELECT user_type, roles, props, auth_service FROM users WHERE email = $1"#, email)
+    query!(r#"SELECT user_type, roles, props, auth_service FROM users WHERE id = $1"#, user_id)
       .fetch_one(&s.db.get().await.clone())
       .await
       .map_err(|err| handle_db_error(err, "auth.store.user_get_auth_data"))?;

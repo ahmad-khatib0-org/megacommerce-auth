@@ -89,7 +89,10 @@ impl Server {
     self.db = Some(Arc::new(RwLock::new(self.init_database().await?)));
 
     let translations = self.common.translations(|trans| trans.clone()).await;
-    translations_init(translations, 5).map_err(|err| ie("error init trans", Box::new(err)))?;
+    let local = self.config().get().await.localization.clone().unwrap();
+    let default_lang = local.default_client_locale().to_string();
+    translations_init(translations, 5, default_lang, local.available_locales)
+      .map_err(|err| ie("error init trans", Box::new(err)))?;
 
     self.store =
       Some(Arc::new(RwLock::new(AuthStoreImpl::new(AuthStoreImplArgs { db: self.db() }))));

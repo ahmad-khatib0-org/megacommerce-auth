@@ -27,7 +27,7 @@ impl Server {
       err_type: ErrorType::Internal,
       err: Box::new(err),
       msg: "failed to create a redis pool".into(),
-      path: "auth.server.init".into(),
+      path: "auth.server.init_redis".into(),
     })?)
   }
 }

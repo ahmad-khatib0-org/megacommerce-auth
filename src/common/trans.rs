@@ -14,15 +14,10 @@ impl Common {
   pub(super) async fn translations_get(
     &mut self,
   ) -> Result<HashMap<String, TranslationElements>, BoxedErr> {
-    let err_msg = "failed to get configurations from common service";
-    let ie = |msg: &str, err: Box<dyn Error + Send + Sync>| {
-      Box::new(InternalError {
-        err_type: ErrorType::Internal,
-        temp: false,
-        err,
-        msg: msg.into(),
-        path: "auth.common.config_get".into(),
-      })
+    let err_msg = "failed to get translations from common service".to_string();
+    let path = "auth.common.translations_get".into();
+    let ie = |msg: String, err: Box<dyn Error + Send + Sync>| {
+      Box::new(InternalError { err_type: ErrorType::Internal, temp: false, err, msg, path })
     };
 
     let req = Request::new(TranslationsGetRequest {});
@@ -42,7 +37,7 @@ impl Common {
         return Err(ie(err_msg, Box::new(e)));
       }
       Err(e) => {
-        return Err(ie("failed to get configurations: request timeout", Box::new(e)));
+        return Err(ie("failed to get translations: request timeout".to_string(), Box::new(e)));
       }
     }
   }

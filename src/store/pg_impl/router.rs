@@ -12,8 +12,8 @@ impl AuthStore for AuthStoreImpl {
   async fn user_get_auth_data(
     &self,
     ctx: Arc<Context>,
-    email: &str,
+    user_id: &str,
   ) -> Result<CachedUserData, DBError> {
-    user_get_auth_data(self, ctx, email).await
+    user_get_auth_data(self, ctx, user_id).await
   }
 }

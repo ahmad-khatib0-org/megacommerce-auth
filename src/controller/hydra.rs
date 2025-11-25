@@ -50,29 +50,45 @@ impl HydraClient for DefaultHydraClient {
       Box::new(InternalError::new(path, err, ErrorType::Internal, false, msg.into()))
     };
 
+    // send request
     let resp = self
       .http
-      .post(url)
+      .post(&url)
       .basic_auth(&self.client_id, Some(&self.client_secret))
       .form(&[("token", token)])
       .send()
       .await
-      .map_err(|err| ie(Box::new(err), err_msg))?;
+      .map_err(|err| {
+        tracing::error!(%url, "hydra introspect request failed: {:?}", err);
+        ie(Box::new(err), err_msg)
+      })?;
 
-    if !resp.status().is_success() {
-      let err = Error::new(ErrorKind::Other, err_msg);
+    // Log status
+    tracing::debug!(status = %resp.status(), "hydra introspect status");
+
+    let status = resp.status();
+    // Read the body text to inspect error payloads (do this before attempting .json())
+    let body_text = resp.text().await.map_err(|err| {
+      tracing::error!("failed to read hydra response body: {:?}", err);
+      ie(Box::new(err), "failed to read hydra response body")
+    })?;
+    tracing::debug!(body = %body_text, "hydra introspect body");
+
+    // Handle non-2xx explicitly with logged body
+    if !status.is_success() {
+      tracing::warn!(status = %status, body = %body_text, "hydra returned non-success");
+      let err = Error::new(ErrorKind::Other, format!("hydra returned {}", status));
       return Err(ie(Box::new(err), err_msg));
     }
 
-    let body: IntrospectionResponse = resp.json().await.map_err(|err| {
+    // parse JSON now that we have the body text
+    let body: IntrospectionResponse = serde_json::from_str(&body_text).map_err(|err| {
+      tracing::error!("failed to parse introspection JSON: {:?}", err);
       ie(Box::new(err), "failed to serialize IntrospectionResponse hydra response")
     })?;
 
     if body.active {
-      return Ok(HydraValidation::Valid {
-        sub: body.sub.unwrap_or_default(),
-        exp: body.exp.unwrap_or(0),
-      });
+      Ok(HydraValidation::Valid { sub: body.sub.unwrap_or_default(), exp: body.exp.unwrap_or(0) })
     } else {
       Ok(HydraValidation::Invalid(format!("the token is invalid: {}", body).into()))
     }
