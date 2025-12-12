@@ -6,5 +6,6 @@ pub struct EssentialHttpHeaders {
   pub x_forwarded_for: String,
   pub x_request_id: String,
   pub accept_language: String,
+  pub timezone: String,
   pub headers: std::collections::HashMap<String, String>,
 }

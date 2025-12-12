@@ -1422,15 +1422,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "itertools"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
-dependencies = [
- "either",
-]
-
-[[package]]
 name = "itoa"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1585,7 +1576,7 @@ dependencies = [
  "deadpool-redis",
  "derive_more",
  "http",
- "megacommerce-proto 0.4.34",
+ "megacommerce-proto",
  "megacommerce-shared",
  "phf 0.13.1",
  "reqwest",
@@ -1605,21 +1596,9 @@ dependencies = [
 
 [[package]]
 name = "megacommerce-proto"
-version = "0.3.94"
+version = "0.4.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cca91509301c53279126e71eb916f11b600d0cff8853ef13c63019a180a207ac"
-dependencies = [
- "prost 0.13.5",
- "prost-types",
- "serde",
- "tonic",
-]
-
-[[package]]
-name = "megacommerce-proto"
-version = "0.4.34"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "956ea1fcb9b4997f404551cb059d0e73298cd5f8aec5994771133638163db9a3"
+checksum = "b1e64c55452f71b3a7b75b6fdc469d5b90a0da6e6822ba5d67257c96fa88de39"
 dependencies = [
  "prost 0.13.5",
  "prost-types",
@@ -1629,9 +1608,9 @@ dependencies = [
 
 [[package]]
 name = "megacommerce-shared"
-version = "0.4.78"
+version = "0.4.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8067cb437b92f85bd13b98d202e45e52cd58e7eb63f45c3535044cedfda58af2"
+checksum = "5f8e7d1581ec33be7720a2ff1ee171b74414eb42b6f413b706035e2d51d94865"
 dependencies = [
  "base64",
  "chrono",
@@ -1639,7 +1618,7 @@ dependencies = [
  "hex",
  "http",
  "image",
- "megacommerce-proto 0.4.34",
+ "megacommerce-proto",
  "megacommerce-shared-sanitize-derive",
  "regex",
  "scopeguard",
@@ -1661,11 +1640,11 @@ dependencies = [
 
 [[package]]
 name = "megacommerce-shared-sanitize-derive"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffc3dc2fed47b34cab76dfe7de429ab7d06add64132b7c20d1e0f6a4357efa4d"
+checksum = "fb90a63e1d3cb6b56e8f03f4967841def2d893029c51a6ac327f86b2ac53514a"
 dependencies = [
- "megacommerce-proto 0.3.94",
+ "megacommerce-proto",
  "proc-macro2",
  "quote",
  "syn",
@@ -2238,7 +2217,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools",
  "proc-macro2",
  "quote",
  "syn",
@@ -2251,7 +2230,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9120690fafc389a67ba3803df527d0ec9cbbc9cc45e4cc20b332996dfb672425"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools",
  "proc-macro2",
  "quote",
  "syn",
@@ -2378,7 +2357,7 @@ dependencies = [
  "built",
  "cfg-if",
  "interpolate_name",
- "itertools 0.12.1",
+ "itertools",
  "libc",
  "libfuzzer-sys",
  "log",
@@ -3880,7 +3859,7 @@ version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0978bf7171b3d90bac376700cb56d606feb40f251a475a5d6634613564460b22"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

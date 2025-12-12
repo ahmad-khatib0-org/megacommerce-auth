@@ -27,22 +27,16 @@ impl Controller {
       self.cached_config.available_languages.clone(),
       self.cached_config.default_language.clone(),
     );
-    let path = req
-      .attributes
-      .as_ref()
-      .and_then(|a| a.request.as_ref())
-      .and_then(|r| r.http.as_ref())
-      .map(|h| h.path.clone())
-      .unwrap_or_default();
 
     Arc::new(Context {
       session: Session::default(),
       ip_address: h.x_forwarded_for.clone(),
       x_forwarded_for: h.x_forwarded_for,
       request_id: h.x_request_id,
-      path,
+      path: h.path,
       user_agent: h.user_agent,
       accept_language: h.accept_language,
+      timezone: h.timezone,
     })
   }
 
@@ -115,31 +109,31 @@ impl Controller {
             }
           })?;
 
-        headers.push(header(Header::SessionId, c.jti));
-        headers.push(header(Header::Token, token));
+        headers.push(header(Header::XSessionID, c.jti));
+        headers.push(header(Header::Authorization, token));
         headers.push(header(
-          Header::CreatedAt,
+          Header::XSessionCreatedAt,
           c.iat.and_then(|t| t.seconds.to_string().into()).unwrap_or_default(),
         ));
         headers.push(header(
-          Header::ExpiresAt,
+          Header::XSessionExpiresAt,
           c.exp.and_then(|t| t.seconds.to_string().into()).unwrap_or_default(),
         ));
-        headers.push(header(Header::LastActivityAt, Utc::now().timestamp().to_string()));
-        headers.push(header(Header::UserId, user_id));
-        headers.push(header(Header::DeviceId, device_id.to_string()));
-        headers.push(header(Header::Roles, auth_data.roles));
-        headers.push(header(Header::IsOauth, auth_data.is_oauth.to_string()));
-        headers.push(header(Header::Props, auth_data.props));
+        headers.push(header(Header::XLastActivityAt, Utc::now().timestamp().to_string()));
+        headers.push(header(Header::XUserID, user_id));
+        headers.push(header(Header::XDeviceID, device_id.to_string()));
+        headers.push(header(Header::XRoles, auth_data.roles));
+        headers.push(header(Header::XIsOAuth, auth_data.is_oauth.to_string()));
+        headers.push(header(Header::XProps, auth_data.props));
       }
     }
 
-    headers.push(header(Header::XRequestId, ctx.request_id.clone()));
-    headers.push(header(Header::XIpAddress, ctx.ip_address.clone()));
+    headers.push(header(Header::XRequestID, ctx.request_id.clone()));
+    headers.push(header(Header::XIPAddress, ctx.ip_address.clone()));
     headers.push(header(Header::XForwardedFor, ctx.x_forwarded_for.clone()));
-    headers.push(header(Header::Path, ctx.path.clone()));
     headers.push(header(Header::UserAgent, ctx.user_agent.clone()));
     headers.push(header(Header::AcceptLanguage, ctx.accept_language.clone()));
+    headers.push(header(Header::XTimezone, ctx.timezone.clone()));
     Ok(headers)
   }
 

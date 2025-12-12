@@ -120,6 +120,7 @@ pub fn get_essential_http_headers(
     x_forwarded_for: get("x-forwarded-for"),
     x_request_id: get("x-request-id"),
     accept_language,
+    timezone: get("x-timezone"),
     headers,
   }
 }
