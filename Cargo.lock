@@ -1596,9 +1596,9 @@ dependencies = [
 
 [[package]]
 name = "megacommerce-proto"
-version = "0.4.39"
+version = "0.4.62"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1e64c55452f71b3a7b75b6fdc469d5b90a0da6e6822ba5d67257c96fa88de39"
+checksum = "5094ef541da47a17bc1723988f46791cd0f1f2d1ef02eb380fce9be78fa4b745"
 dependencies = [
  "prost 0.13.5",
  "prost-types",
@@ -1608,9 +1608,9 @@ dependencies = [
 
 [[package]]
 name = "megacommerce-shared"
-version = "0.4.79"
+version = "0.4.80"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f8e7d1581ec33be7720a2ff1ee171b74414eb42b6f413b706035e2d51d94865"
+checksum = "0b87b3cd1a0dfd6b7fd6721f5744a8312c5c81dc052ac29a06c4866c9a4576b5"
 dependencies = [
  "base64",
  "chrono",
@@ -3859,7 +3859,7 @@ version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0978bf7171b3d90bac376700cb56d606feb40f251a475a5d6634613564460b22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

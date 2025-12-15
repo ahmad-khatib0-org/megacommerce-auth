@@ -4,6 +4,8 @@ pub(super) static ROUTES: Map<&'static str, bool> = phf_map! {
   "/users.v1.UsersService/CreateSupplier" =>  false,
   "/users.v1.UsersService/Login" =>  false,
   "/users.v1.UsersService/GetCustomerProfile" =>  true,
+  "/users.v1.UsersService/GetSupplierProfile" =>  true,
+  "/users.v1.UsersService/GetSupplierDashboard" =>  true,
 
   "/products.v1.ProductsService/ProductData" => true,
   "/products.v1.ProductsService/ProductCreate" => true,
@@ -16,10 +18,14 @@ pub(super) static ROUTES: Map<&'static str, bool> = phf_map! {
   "/products.v1.ProductsService/ProductDetails" => false,
   "/products.v1.ProductsService/CategoryNavbar" => false,
   "/products.v1.ProductsService/ProductsCategory" => false,
+  "/products.v1.ProductsService/ProductsList" => true,
 
   "/orders.v1.OrdersService/OrdersList" => true,
   "/orders.v1.OrdersService/PaymentAddMethod" => true,
   "/orders.v1.OrdersService/PaymentRemoveMethod" => true,
   "/orders.v1.OrdersService/PaymentMakeDefault" => true,
   "/orders.v1.OrdersService/PaymentsList" => true,
+
+  "/inventory.v1.InventoryService/InventoryList" => true,
+  "/inventory.v1.InventoryService/InventoryGet" => true,
 };
