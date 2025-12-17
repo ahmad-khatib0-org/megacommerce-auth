@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT user_type, roles, props, auth_service FROM users WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_type",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "roles",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 2,
+        "name": "props",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 3,
+        "name": "auth_service",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "9612a47b04d7cd810740de115931150160bbbc126ae1565b8e34499f92ea2de9"
+}
