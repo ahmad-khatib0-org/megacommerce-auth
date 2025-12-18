@@ -1,37 +1,49 @@
 # Multi-stage build for Rust auth service
-FROM rust:1.88-slim-bookworm AS base
+# Stage 1: Builder
+FROM rust:1.88-slim-bookworm AS builder
 
 WORKDIR /app
 
-ENV ENV=dev \
-    CARGO_NET_GIT_FETCH_WITH_CLI=true
-
-# Install system dependencies
+# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy dependency files first (cached unless changed)
+COPY Cargo.toml Cargo.lock ./
+
+# Create dummy source to cache dependencies
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+
+# Download dependencies (cached)
+RUN cargo fetch --locked
+
+# Copy real source code
+COPY src ./src
+COPY config.dev.yaml ./
+
+# Build release binary
+RUN cargo build --release && \
+    strip target/release/megacommerce-auth
+
+# Stage 2: Tiny runtime image
+FROM debian:bookworm-slim
+
+WORKDIR /app
+
+# Install ONLY runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libssl3 \
+    ca-certificates \
     postgresql-client \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Dependencies stage
-FROM base AS deps
-
-COPY Cargo.toml Cargo.lock ./
-COPY src ./src
-
-RUN cargo build --release 2>&1 | grep -v "warning:" || true
-
-# Development stage
-FROM base AS dev
-
-COPY Cargo.toml Cargo.lock ./
-COPY --from=deps /app/target ./target
-COPY src ./src
-COPY config.dev.yaml .
-
-RUN cargo install cargo-watch
+# Copy stripped binary from builder
+COPY --from=builder /app/target/release/megacommerce-auth /usr/local/bin/
+COPY --from=builder /app/config.dev.yaml ./
 
 EXPOSE 50054
 
-CMD ["cargo", "watch", "-x", "run"]
+CMD ["/usr/local/bin/megacommerce-auth"]
