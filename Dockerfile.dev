@@ -1,47 +1,39 @@
 # Multi-stage build for Rust auth service
-# Stage 1: Builder
-FROM rust:1.88-slim-bookworm AS builder
+# Stage 1: Builder (musl for static linking)
+FROM rust:alpine AS builder
 
 WORKDIR /app
 
 # Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    pkg-config \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache musl-dev pkgconfig openssl-dev build-base postgresql-dev
 
-# Copy dependency files first (cached unless changed)
+# Copy dependency files
 COPY Cargo.toml Cargo.lock ./
 
 # Create dummy source to cache dependencies
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 
-# Download dependencies (cached)
+# Download dependencies
 RUN cargo fetch --locked
 
-# Copy real source code
+# Copy real source
 COPY src ./src
 COPY config.dev.yaml ./
 
-# Build release binary
-RUN cargo build --release && \
-    strip target/release/megacommerce-auth
+# Build with musl target
+RUN cargo build --release --target x86_64-unknown-linux-musl && \
+    strip target/x86_64-unknown-linux-musl/release/megacommerce-auth
 
 # Stage 2: Tiny runtime image
-FROM debian:bookworm-slim
+FROM alpine:latest
 
 WORKDIR /app
 
 # Install ONLY runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libssl3 \
-    ca-certificates \
-    postgresql-client \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache postgresql-client curl ca-certificates
 
-# Copy stripped binary from builder
-COPY --from=builder /app/target/release/megacommerce-auth /usr/local/bin/
+# Copy stripped binary
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/megacommerce-auth /usr/local/bin/
 COPY --from=builder /app/config.dev.yaml ./
 
 EXPOSE 50054
