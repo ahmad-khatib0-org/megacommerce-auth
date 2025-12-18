@@ -17,6 +17,7 @@ RUN mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo fetch --locked
 
 # Copy real source
+COPY .sqlx ./.sqlx
 COPY src ./src
 COPY config.dev.yaml ./
 
