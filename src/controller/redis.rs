@@ -8,8 +8,10 @@ use megacommerce_shared::models::{
 };
 use tonic::async_trait;
 use tower::BoxError;
+use tracing::instrument;
 
 use super::token::{check_token, get_token, mark_checked_ok, revoke_token, set_token};
+use super::metrics::MetricsCollector;
 
 /// Represents Redis check results
 #[derive(Debug)]
@@ -37,6 +39,7 @@ pub trait RedisClient: Send + Sync {
 #[derive(Debug, Clone)]
 pub struct DefaultRedisClient {
   pub redis: RLock<Pool>,
+  pub metrics: MetricsCollector,
 }
 
 impl DefaultRedisClient {
@@ -46,47 +49,119 @@ impl DefaultRedisClient {
     Box::new(InternalError::new(path.into(), err, ErrorType::Internal, false, msg))
   }
 
+  #[instrument(skip(self))]
   pub async fn get_conn(&self, path: &str) -> Result<Connection, BoxedErr> {
-    Ok(self.redis.get().await.get().await.map_err(|err| {
-      InternalError::new(
+    self.redis.get().await.get().await.map_err(|err| {
+      let error_msg = err.to_string();
+      self.metrics.record_redis_error("get_connection", &error_msg);
+      let internal_err = InternalError::new(
         path.into(),
         Box::new(err),
         ErrorType::Internal,
         false,
         "failed to get a redis connection from pool".into(),
-      )
-    })?)
+      );
+      Box::new(internal_err) as BoxedErr
+    })
   }
 }
 
 #[async_trait]
 impl RedisClient for DefaultRedisClient {
+  #[instrument(skip(self), fields(token_id = ""))]
   async fn get_token(
     &self,
     token: &str,
     path: &str,
   ) -> Result<Option<CachedTokenStatus>, BoxedErr> {
-    get_token(self, &token, &path).await
+    let start = std::time::Instant::now();
+    tracing::Span::current().record("token_id", token);
+    let result = get_token(self, &token, &path).await;
+    let duration = start.elapsed().as_secs_f64();
+    
+    match &result {
+      Ok(Some(_)) => {
+        self.metrics.record_cache_hit();
+        self.metrics.record_redis_operation("get_token");
+      }
+      Ok(None) => {
+        self.metrics.record_cache_miss();
+        self.metrics.record_redis_operation("get_token");
+      }
+      Err(e) => {
+        self.metrics.record_redis_error("get_token", &e.to_string());
+      }
+    }
+    self.metrics.observe_redis_duration("get_token", duration);
+    result
   }
 
+  #[instrument(skip(self, data), fields(token_id = ""))]
   async fn set_token(
     &self,
     jti: &str,
     data: &CachedTokenStatus,
     path: &str,
   ) -> Result<(), BoxedErr> {
-    set_token(self, jti, data, path).await
+    let start = std::time::Instant::now();
+    tracing::Span::current().record("token_id", jti);
+    let result = set_token(self, jti, data, path).await;
+    let duration = start.elapsed().as_secs_f64();
+    
+    if let Err(e) = &result {
+      self.metrics.record_redis_error("set_token", &e.to_string());
+    } else {
+      self.metrics.record_redis_operation("set_token");
+    }
+    self.metrics.observe_redis_duration("set_token", duration);
+    result
   }
 
+  #[instrument(skip(self), fields(token_id = ""))]
   async fn check_token(&self, jti: &str) -> Result<RedisCheck, BoxedErr> {
-    check_token(&self, &jti).await
+    let start = std::time::Instant::now();
+    tracing::Span::current().record("token_id", jti);
+    let result = check_token(&self, &jti).await;
+    let duration = start.elapsed().as_secs_f64();
+    
+    if let Err(e) = &result {
+      self.metrics.record_redis_error("check_token", &e.to_string());
+    } else {
+      self.metrics.record_redis_operation("check_token");
+    }
+    self.metrics.observe_redis_duration("check_token", duration);
+    result
   }
 
+  #[instrument(skip(self), fields(token_id = ""))]
   async fn revoke_token(&self, jti: &str) -> Result<(), BoxedErr> {
-    revoke_token(&self, &jti).await
+    let start = std::time::Instant::now();
+    tracing::Span::current().record("token_id", jti);
+    let result = revoke_token(&self, &jti).await;
+    let duration = start.elapsed().as_secs_f64();
+    
+    if let Err(e) = &result {
+      self.metrics.record_redis_error("revoke_token", &e.to_string());
+    } else {
+      self.metrics.record_redis_operation("revoke_token");
+    }
+    self.metrics.observe_redis_duration("revoke_token", duration);
+    result
   }
 
+  #[instrument(skip(self), fields(token_id = ""))]
   async fn mark_checked_ok(&self, jti: &str) -> Result<(), BoxedErr> {
-    mark_checked_ok(&self, &jti).await
+    let start = std::time::Instant::now();
+    tracing::Span::current().record("token_id", jti);
+    let result = mark_checked_ok(&self, &jti).await;
+    let duration = start.elapsed().as_secs_f64();
+    
+    if let Err(e) = &result {
+      self.metrics.record_redis_error("mark_checked_ok", &e.to_string());
+    } else {
+      self.metrics.record_redis_operation("mark_checked_ok");
+    }
+    self.metrics.observe_redis_duration("mark_checked_ok", duration);
+    result
   }
 }

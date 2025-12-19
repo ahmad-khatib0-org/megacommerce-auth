@@ -3,7 +3,7 @@ mod database;
 mod getters;
 mod init;
 
-use std::sync::Arc;
+use std::{io::ErrorKind, sync::Arc};
 
 use deadpool_redis::Pool as RedisPool;
 use megacommerce_proto::Config as SharedConfig;
@@ -97,8 +97,21 @@ impl Server {
     self.store =
       Some(Arc::new(RwLock::new(AuthStoreImpl::new(AuthStoreImplArgs { db: self.db() }))));
 
-    let controller_args =
-      { ControllerArgs { config: self.config(), redis_con: self.redis(), store: self.store() } };
+    let (_registry, metrics) = crate::otel::init_otel("megacommerce-auth").map_err(|err| {
+      ie(
+        "failed to initialize OTEL",
+        Box::new(std::io::Error::new(ErrorKind::Other, format!("{:?}", err))),
+      )
+    })?;
+
+    let controller_args = {
+      ControllerArgs {
+        config: self.config(),
+        redis_con: self.redis(),
+        store: self.store(),
+        metrics,
+      }
+    };
 
     let controller = Controller::new(controller_args).await;
     controller.run().await?;

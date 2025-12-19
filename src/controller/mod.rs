@@ -1,5 +1,6 @@
 mod audit;
 mod hydra;
+pub mod metrics;
 mod redis;
 mod response;
 mod router;
@@ -29,6 +30,7 @@ pub struct ControllerArgs {
   pub config: RLock<Config>,
   pub redis_con: RLock<RedisPool>,
   pub store: RLock<dyn AuthStore + Send + Sync>,
+  pub metrics: metrics::MetricsCollector,
 }
 
 #[derive(Debug)]
@@ -38,6 +40,7 @@ pub struct Controller {
   pub redis: DefaultRedisClient,
   pub redis_con: RLock<RedisPool>,
   pub(super) store: RLock<dyn AuthStore + Send + Sync>,
+  pub metrics: metrics::MetricsCollector,
   cached_config: CachedConfig,
 }
 
@@ -65,7 +68,7 @@ impl Controller {
       client_secret: urls.2,
     };
 
-    let redis = DefaultRedisClient { redis: ca.redis_con.clone() };
+    let redis = DefaultRedisClient { redis: ca.redis_con.clone(), metrics: ca.metrics.clone() };
     let cfg = ca.config.get().await.localization.clone().unwrap();
     let cached_config = CachedConfig {
       available_languages: cfg.available_locales.clone(),
@@ -77,25 +80,26 @@ impl Controller {
       redis,
       redis_con: ca.redis_con,
       store: ca.store,
+      metrics: ca.metrics,
       cached_config,
     }
   }
 
   pub async fn run(self) -> Result<(), BoxedErr> {
+    let ie = |err: BoxedErr, msg: &str| InternalError {
+      temp: false,
+      err,
+      err_type: ErrorType::Internal,
+      msg: msg.into(),
+      path: "auth.controller.run".into(),
+    };
+
     let url = {
       let config = self.config.get().await;
       config.services.as_ref().unwrap().auth_service_grpc_url().to_owned()
     };
 
-    validate_url_target(&url).map_err(|e| {
-      Box::new(InternalError {
-        temp: false,
-        err: Box::new(e),
-        err_type: ErrorType::Internal,
-        msg: "failed to run auth service server".into(),
-        path: "auth.controller.run".into(),
-      })
-    })?;
+    validate_url_target(&url).map_err(|e| ie(Box::new(e), "failed to validate URL"))?;
 
     let layer = ServiceBuilder::new().layer(InterceptorLayer::new(middleware_context)).into_inner();
     TonicServer::builder()
